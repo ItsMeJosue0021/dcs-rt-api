@@ -1,23 +1,33 @@
 const express = require('express');
+require('dotenv').config();
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
+const PORT = process.env.PORT || 5000;
+const uploadsDir = path.join(__dirname, 'uploads');
+
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 app.use(cors());
 app.use(express.json());
 
 const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root', 
-    password: '', 
-    database: 'dcs_research'
+    host: process.env.MYSQLHOST || process.env.DB_HOST || 'localhost',
+    user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
+    password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
+    database: process.env.MYSQLDATABASE || process.env.DB_NAME || 'dcs_research',
+    port: Number(process.env.MYSQLPORT || process.env.DB_PORT || 3306)
 });
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // folder where PDFs will go
+        cb(null, uploadsDir); // folder where PDFs will go
     },
     filename: (req, file, cb) => {
         const uniqueName = Date.now() + '-' + file.originalname;
@@ -34,7 +44,7 @@ const upload = multer({
         cb(null, true);
     }
 });
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(uploadsDir));
 
 // 1. CREATE
 app.post('/api/research', upload.single('pdf_file'), async (req, res) => {
@@ -178,4 +188,4 @@ app.put('/api/research/:id', upload.single('pdf_file'), async (req, res) => {
     }
 });
 
-app.listen(5000, () => console.log('DCS Backend running on http://localhost:5000'));
+app.listen(PORT, () => console.log(`DCS Backend running on port ${PORT}`));
