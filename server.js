@@ -18,11 +18,10 @@ app.use(cors());
 app.use(express.json());
 
 const pool = mysql.createPool({
-    host: process.env.MYSQLHOST || process.env.DB_HOST || 'localhost',
-    user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
-    password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
-    database: process.env.MYSQLDATABASE || process.env.DB_NAME || 'dcs_research',
-    port: Number(process.env.MYSQLPORT || process.env.DB_PORT || 3306)
+    host: 'localhost',
+    user: 'root',
+    password: 'password',
+    database: 'dcs_research'
 });
 
 const storage = multer.diskStorage({
@@ -49,21 +48,18 @@ app.use('/uploads', express.static(uploadsDir));
 // 1. CREATE
 app.post('/api/research', upload.single('pdf_file'), async (req, res) => {
     try {
-        console.log("BODY:", req.body);
-        console.log("FILE:", req.file);
-
-        const { title, authors, abstract, adviser, critic, status, website_url } = req.body;
-
+        const { title, type, authors, abstract, adviser, critic, status, website_url } = req.body;
         const pdf_url = req.file ? `/uploads/${req.file.filename}` : null;
 
         const query = `
             INSERT INTO research 
-            (title, authors, abstract, pdf_url, adviser, critic, status, website_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (title, type, authors, abstract, pdf_url, adviser, critic, status, website_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const [result] = await pool.query(query, [
             title,
+            type || 'Capstone', 
             authors,
             abstract,
             pdf_url,
@@ -74,9 +70,8 @@ app.post('/api/research', upload.single('pdf_file'), async (req, res) => {
         ]);
 
         res.json({ id: result.insertId });
-
     } catch (error) {
-        console.error("🔥 SERVER ERROR:", error);  // IMPORTANT
+        console.error("🔥 SERVER ERROR:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -105,50 +100,49 @@ app.delete('/api/research/:id', async (req, res) => {
     }
 });
 
+// app.put('/api/research/:id', upload.single('pdf_file'), async (req, res) => {
+//     const { id } = req.params;
+//     const { title, authors, abstract, adviser, critic, status, website_url } = req.body;
+
+//     let pdf_url = null;
+
+//     if (req.file) {
+//         pdf_url = `/uploads/${req.file.filename}`;
+//     }
+
+//     try {
+//         const query = `
+//             UPDATE research 
+//             SET title=?, authors=?, abstract=?, adviser=?, critic=?, status=?, website_url=?,
+//                 pdf_url = COALESCE(?, pdf_url)
+//             WHERE id=?
+//         `;
+
+//         await pool.query(query, [
+//             title,
+//             authors,
+//             abstract,
+//             adviser,
+//             critic,
+//             status,
+//             website_url || null,
+//             pdf_url,
+//             id
+//         ]);
+
+//         res.json({ message: 'Updated successfully' });
+
+//     } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ error: error.message });
+//     }
+// });
+
 app.put('/api/research/:id', upload.single('pdf_file'), async (req, res) => {
     const { id } = req.params;
-    const { title, authors, abstract, adviser, critic, status, website_url } = req.body;
+    const { title, type, authors, abstract, adviser, critic, status, website_url } = req.body;
 
     let pdf_url = null;
-
-    if (req.file) {
-        pdf_url = `/uploads/${req.file.filename}`;
-    }
-
-    try {
-        const query = `
-            UPDATE research 
-            SET title=?, authors=?, abstract=?, adviser=?, critic=?, status=?, website_url=?,
-                pdf_url = COALESCE(?, pdf_url)
-            WHERE id=?
-        `;
-
-        await pool.query(query, [
-            title,
-            authors,
-            abstract,
-            adviser,
-            critic,
-            status,
-            website_url || null,
-            pdf_url,
-            id
-        ]);
-
-        res.json({ message: 'Updated successfully' });
-
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.put('/api/research/:id', upload.single('pdf_file'), async (req, res) => {
-    const { id } = req.params;
-    const { title, authors, abstract, adviser, critic, status, website_url } = req.body;
-
-    let pdf_url = null;
-
     if (req.file) {
         pdf_url = `/uploads/${req.file.filename}`;
     }
@@ -158,6 +152,7 @@ app.put('/api/research/:id', upload.single('pdf_file'), async (req, res) => {
             UPDATE research
             SET 
                 title = ?,
+                type = ?,
                 authors = ?,
                 abstract = ?,
                 adviser = ?,
@@ -170,6 +165,7 @@ app.put('/api/research/:id', upload.single('pdf_file'), async (req, res) => {
 
         await pool.query(query, [
             title,
+            type || 'Capstone',
             authors,
             abstract,
             adviser,
@@ -183,7 +179,7 @@ app.put('/api/research/:id', upload.single('pdf_file'), async (req, res) => {
         res.json({ message: "Updated successfully" });
 
     } catch (error) {
-        console.error(error);
+        console.error("🔥 UPDATE ERROR:", error);
         res.status(500).json({ error: error.message });
     }
 });
