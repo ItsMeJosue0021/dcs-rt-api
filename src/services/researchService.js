@@ -3,8 +3,8 @@ const pool = require('../config/db');
 async function createResearch(data) {
     const query = `
         INSERT INTO research
-        (title, type, authors, abstract, pdf_url, adviser, critic, status, website_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (title, type, authors, abstract, pdf_url, adviser, critic, status, website_url, academic_year)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await pool.query(query, [
@@ -16,7 +16,8 @@ async function createResearch(data) {
         data.adviser,
         data.critic,
         data.status,
-        data.website_url || null
+        data.website_url || null,
+        data.academic_year
     ]);
 
     return result.insertId;
@@ -53,6 +54,7 @@ async function updateResearch(id, data) {
             critic = ?,
             status = ?,
             website_url = ?,
+            academic_year = ?,
             pdf_url = COALESCE(?, pdf_url)
         WHERE id = ?
     `;
@@ -66,6 +68,7 @@ async function updateResearch(id, data) {
         data.critic,
         data.status,
         data.website_url || null,
+        data.academic_year,
         data.pdf_url,
         id
     ]);

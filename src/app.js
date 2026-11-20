@@ -6,13 +6,14 @@ const researchRoutes = require('./routes/researchRoutes');
 
 const app = express();
 
-const allowedOrigins = (process.env.CLIENT_ORIGINS || 'http://localhost:5173')
+const configuredOrigins = (process.env.CLIENT_ORIGINS || '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+const allowedOrigins = new Set(['http://localhost:5173', ...configuredOrigins]);
 
 app.use(cors({ origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error('Origin is not allowed by CORS'));
 } }));
 app.use(express.json({ limit: '32kb' }));

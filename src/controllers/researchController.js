@@ -8,16 +8,26 @@ const ALLOWED_STATUSES = new Set(['MOR', 'Part A', 'Part B', 'Finished']);
 const REQUIRED_FIELDS = ['title', 'authors', 'abstract', 'adviser', 'critic', 'status'];
 
 function validateResearch(data) {
-    for (const field of REQUIRED_FIELDS) {
+    for (const field of REQUIRED_FIELDS.filter((field) => field !== 'abstract')) {
         if (typeof data[field] !== 'string' || !data[field].trim()) {
             return `${field} is required.`;
         }
+    }
+    if (data.status === 'Finished') {
+        if (typeof data.abstract !== 'string' || !data.abstract.trim()) return 'abstract is required for finished research.';
+    } else if (typeof data.abstract === 'string' && data.abstract.trim()) {
+        return 'abstract can only be added when status is Finished.';
     }
     if (data.title.trim().length > 255) return 'title must be 255 characters or fewer.';
     if (data.adviser.trim().length > 255) return 'adviser must be 255 characters or fewer.';
     if (data.critic.trim().length > 255) return 'critic must be 255 characters or fewer.';
     if (data.type !== undefined && !ALLOWED_TYPES.has(data.type)) return 'type must be Capstone or Thesis.';
     if (!ALLOWED_STATUSES.has(data.status)) return 'status is not supported.';
+    if (typeof data.academic_year !== 'string' || !/^\d{4}-\d{4}$/.test(data.academic_year)) {
+        return 'academic_year must use the format YYYY-YYYY.';
+    }
+    const [startYear, endYear] = data.academic_year.split('-').map(Number);
+    if (endYear !== startYear + 1) return 'academic_year must contain consecutive years.';
 
     if (data.website_url !== undefined && typeof data.website_url !== 'string') {
         return 'website_url must be a string.';
@@ -59,7 +69,11 @@ async function createResearch(req, res) {
 
     try {
         const pdf_url = req.file ? `/uploads/${req.file.filename}` : null;
-        const id = await researchService.createResearch({ ...req.body, pdf_url });
+        const id = await researchService.createResearch({
+            ...req.body,
+            abstract: req.body.status === 'Finished' ? req.body.abstract.trim() : '',
+            pdf_url
+        });
         return res.status(201).json({ id });
     } catch (error) {
         await discardUploadedFile(req);
@@ -110,7 +124,11 @@ async function updateResearch(req, res) {
         }
 
         const pdf_url = req.file ? `/uploads/${req.file.filename}` : null;
-        await researchService.updateResearch(req.params.id, { ...req.body, pdf_url });
+        await researchService.updateResearch(req.params.id, {
+            ...req.body,
+            abstract: req.body.status === 'Finished' ? req.body.abstract.trim() : '',
+            pdf_url
+        });
         if (req.file) await removeStoredPdf(existing.pdf_url, 'replaced');
         return res.json({ message: 'Updated successfully' });
     } catch (error) {
