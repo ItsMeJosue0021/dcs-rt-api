@@ -27,6 +27,11 @@ async function getAllResearch() {
     return rows;
 }
 
+async function getResearchById(id) {
+    const [rows] = await pool.query('SELECT * FROM research WHERE id = ?', [id]);
+    return rows[0] || null;
+}
+
 async function deleteResearch(id) {
     const [result] = await pool.query(
         'DELETE FROM research WHERE id = ?',
@@ -71,6 +76,7 @@ async function updateResearch(id, data) {
 module.exports = {
     createResearch,
     getAllResearch,
+    getResearchById,
     deleteResearch,
     updateResearch
 };

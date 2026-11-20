@@ -1,4 +1,5 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const multer = require('multer');
 const { uploadsDir } = require('../config/paths');
 
@@ -11,13 +12,13 @@ const storage = multer.diskStorage({
         cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
-        const uniqueName = Date.now() + '-' + file.originalname;
-        cb(null, uniqueName);
+        cb(null, `${crypto.randomUUID()}.pdf`);
     }
 });
 
 const upload = multer({
     storage,
+    limits: { fileSize: 10 * 1024 * 1024, files: 1 },
     fileFilter: (req, file, cb) => {
         if (file.mimetype !== 'application/pdf') {
             return cb(new Error('Only PDF files allowed!'), false);
@@ -26,4 +27,29 @@ const upload = multer({
     }
 });
 
-module.exports = upload;
+async function verifyPdfSignature(req, res, next) {
+    if (!req.file) return next();
+
+    let isPdf = false;
+    try {
+        const handle = await fs.promises.open(req.file.path, 'r');
+        const header = Buffer.alloc(5);
+        try {
+            const { bytesRead } = await handle.read(header, 0, header.length, 0);
+            isPdf = bytesRead === 5 && header.toString('ascii') === '%PDF-';
+        } finally {
+            await handle.close();
+        }
+    } catch (error) {
+        await fs.promises.unlink(req.file.path).catch(() => {});
+        return next(error);
+    }
+
+    if (!isPdf) {
+        await fs.promises.unlink(req.file.path).catch(() => {});
+        return res.status(400).json({ error: 'The uploaded file is not a valid PDF.' });
+    }
+    return next();
+}
+
+module.exports = { upload, verifyPdfSignature };
