@@ -3,8 +3,13 @@ const cors = require('cors');
 const multer = require('multer');
 const { uploadsDir } = require('./config/paths');
 const researchRoutes = require('./routes/researchRoutes');
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const { requireAuth } = require('./middleware/authMiddleware');
+const db = require('./config/db');
 
 const app = express();
+app.set('trust proxy', 1);
 
 const configuredOrigins = (process.env.CLIENT_ORIGINS || '')
     .split(',')
@@ -12,13 +17,24 @@ const configuredOrigins = (process.env.CLIENT_ORIGINS || '')
     .filter(Boolean);
 const allowedOrigins = new Set(['http://localhost:5173', ...configuredOrigins]);
 
-app.use(cors({ origin: (origin, callback) => {
+app.use(cors({ credentials: true, origin: (origin, callback) => {
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error('Origin is not allowed by CORS'));
 } }));
 app.use(express.json({ limit: '32kb' }));
-app.use('/uploads', express.static(uploadsDir));
+app.get('/health', async (req, res) => {
+    try {
+        await db.query('SELECT 1');
+        return res.json({ status: 'ok' });
+    } catch (error) {
+        console.error('Health check failed:', error.message);
+        return res.status(503).json({ status: 'unavailable' });
+    }
+});
+app.use('/uploads', requireAuth, express.static(uploadsDir));
 
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/research', researchRoutes);
 
 app.use((error, req, res, next) => {

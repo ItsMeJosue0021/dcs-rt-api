@@ -5,18 +5,20 @@ const researchService = require('../services/researchService');
 
 const ALLOWED_TYPES = new Set(['Capstone', 'Thesis']);
 const ALLOWED_STATUSES = new Set(['MOR', 'Part A', 'Part B', 'Finished']);
-const REQUIRED_FIELDS = ['title', 'authors', 'abstract', 'adviser', 'critic', 'status'];
+const REQUIRED_FIELDS = ['title', 'authors', 'adviser', 'critic', 'status'];
 
 function validateResearch(data) {
-    for (const field of REQUIRED_FIELDS.filter((field) => field !== 'abstract')) {
+    for (const field of REQUIRED_FIELDS) {
         if (typeof data[field] !== 'string' || !data[field].trim()) {
             return `${field} is required.`;
         }
     }
     if (data.status === 'Finished') {
         if (typeof data.abstract !== 'string' || !data.abstract.trim()) return 'abstract is required for finished research.';
-    } else if (typeof data.abstract === 'string' && data.abstract.trim()) {
-        return 'abstract can only be added when status is Finished.';
+        if (typeof data.description === 'string' && data.description.trim()) return 'description is only for research that is not Finished.';
+    } else {
+        if (typeof data.description !== 'string' || !data.description.trim()) return 'description is required until research is Finished.';
+        if (typeof data.abstract === 'string' && data.abstract.trim()) return 'abstract can only be added when status is Finished.';
     }
     if (data.title.trim().length > 255) return 'title must be 255 characters or fewer.';
     if (data.adviser.trim().length > 255) return 'adviser must be 255 characters or fewer.';
@@ -72,8 +74,9 @@ async function createResearch(req, res) {
         const id = await researchService.createResearch({
             ...req.body,
             abstract: req.body.status === 'Finished' ? req.body.abstract.trim() : '',
+            description: req.body.status === 'Finished' ? '' : req.body.description.trim(),
             pdf_url
-        });
+        }, req.user);
         return res.status(201).json({ id });
     } catch (error) {
         await discardUploadedFile(req);
@@ -96,7 +99,7 @@ async function deleteResearch(req, res) {
     try {
         const existing = await researchService.getResearchById(req.params.id);
         if (!existing) return res.status(404).json({ error: 'Research record not found.' });
-        await researchService.deleteResearch(req.params.id);
+        await researchService.deleteResearch(req.params.id, existing, req.user);
         await removeStoredPdf(existing.pdf_url, 'deleted');
         return res.json({ message: 'Deleted successfully' });
     } catch (error) {
@@ -127,8 +130,9 @@ async function updateResearch(req, res) {
         await researchService.updateResearch(req.params.id, {
             ...req.body,
             abstract: req.body.status === 'Finished' ? req.body.abstract.trim() : '',
+            description: req.body.status === 'Finished' ? '' : req.body.description.trim(),
             pdf_url
-        });
+        }, existing, req.user);
         if (req.file) await removeStoredPdf(existing.pdf_url, 'replaced');
         return res.json({ message: 'Updated successfully' });
     } catch (error) {
